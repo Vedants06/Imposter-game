@@ -61,6 +61,8 @@ export default function Home({ onRoomJoined }) {
             >
               Join Room
             </button>
+            
+            <p className="text-gray-500 text-sm text-center">made by vedant</p>
           </div>
         ) : mode === 'create' ? (
           <div className="bg-gray-800 p-6 rounded-lg">
