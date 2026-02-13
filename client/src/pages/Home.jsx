@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { socket } from '../socket';
-import { AuroraText } from "@/components/ui/aurora-text"
 
 export default function Home({ onRoomJoined }) {
   const [mode, setMode] = useState(null);
@@ -11,29 +10,15 @@ export default function Home({ onRoomJoined }) {
   const handleCreateRoom = (e) => {
     e.preventDefault();
     setError('');
-
-    if (!playerName.trim()) {
-      setError('Please enter your name');
-      return;
-    }
-
+    if (!playerName.trim()) return setError('Please enter your name');
     socket.emit('create_room', { playerName: playerName.trim() });
   };
 
   const handleJoinRoom = (e) => {
     e.preventDefault();
     setError('');
-
-    if (!playerName.trim()) {
-      setError('Please enter your name');
-      return;
-    }
-
-    if (!roomCode.trim()) {
-      setError('Please enter room code');
-      return;
-    }
-
+    if (!playerName.trim()) return setError('Please enter your name');
+    if (!roomCode.trim()) return setError('Please enter room code');
     socket.emit('join_room', {
       roomCode: roomCode.trim().toUpperCase(),
       playerName: playerName.trim()
@@ -41,108 +26,103 @@ export default function Home({ onRoomJoined }) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden bg-gradient-to-br from-[#0f172a] via-[#0b1120] to-[#020617] text-white">
+    <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden stars-bg text-white">
+      
+      {/* High Intensity Corner Ray Wrapper */}
+      <div className="bottom-ray" />
 
-      {/* Background Glow Effects */}
-      <div className="absolute w-96 h-96 bg-purple-600/30 rounded-full blur-3xl top-[-100px] left-[-100px]" />
-      <div className="absolute w-96 h-96 bg-blue-600/30 rounded-full blur-3xl bottom-[-100px] right-[-100px]" />
+      {/* Static deep-space orbs for constant ambient color */}
+      <div className="absolute w-[600px] h-[600px] bg-purple-600/10 rounded-full blur-[120px] -top-20 -left-20 pointer-events-none" />
+      <div className="absolute w-[600px] h-[600px] bg-blue-600/10 rounded-full blur-[120px] -bottom-20 -right-20 pointer-events-none" />
 
-      <div className="max-w-md w-full z-10">
-
-        {/* Title Section */}
-        <div className="text-center mb-10">
-          <h1 className="text-6xl md:text-7xl font-extrabold tracking-wide bg-gradient-to-r from-purple-400 via-blue-400 to-pink-400 bg-clip-text text-transparent drop-shadow-lg">
-            <AuroraText>Imposter</AuroraText>
+      <div className="max-w-md w-full z-10 text-center animate-slide-up">
+        
+        {/* Stark White Bold Title */}
+        <div className="mb-12">
+          <h1 className="text-7xl md:text-7xl font-black tracking-[0.12em] text-white uppercase drop-shadow-[0_0_20px_rgba(255,255,255,0.2)]">
+            Imposter
           </h1>
-          <p className="text-gray-400 mt-3 text-lg">
+          <p className="text-gray-400 mt-5 text-base font-normal font-mono opacity-90">
             Find the imposters among us
           </p>
         </div>
 
-        {/* Main Buttons */}
         {!mode ? (
-          <div className="space-y-5">
-
+          <div className="space-y-4 max-w-xl mx-auto">
             <button
               onClick={() => setMode('create')}
-              className="w-full py-4 rounded-xl font-semibold text-lg bg-gradient-to-r from-blue-500 to-indigo-600 hover:scale-10 transition-all duration-300 shadow-lg shadow-blue-500/30"
+              className="w-full py-4 rounded-xl font-semibold text-lg bg-[#3b82f6] text-white transition-all duration-300 btn-glow-blue hover:scale-[1.02] active:scale-95"
             >
               Create Room
             </button>
 
             <button
               onClick={() => setMode('join')}
-              className="w-full py-4 rounded-xl font-semibold text-lg bg-gradient-to-r from-green-500 to-emerald-600 hover:scale-10 transition-all duration-300 shadow-lg shadow-green-500/30"
+              className="w-full py-4 rounded-xl font-semibold text-lg bg-[#22c55e] text-white transition-all duration-300 btn-glow-green hover:scale-[1.02] active:scale-95"
             >
               Join Room
             </button>
 
-            <p className="text-gray-500 text-sm text-center mt-6">
+            <p className="text-gray-400 text-xs text-center mt-12 font-sans opacity-50">
               made by vedant
             </p>
-
           </div>
         ) : (
-
-          <div className="backdrop-blur-xl bg-white/5 border border-white/10 p-8 rounded-2xl shadow-2xl">
-
-            <h2 className="text-2xl font-bold mb-6 text-center">
-              {mode === 'create' ? 'Create Room' : 'Join Room'}
+          /* Glassmorphism Form Container */
+          <div className="backdrop-blur-xl bg-white/5 border border-white/10 p-6 rounded-3xl shadow-xl animate-in fade-in zoom-in duration-100 text-left">
+            <h2 className="text-2xl font-normal mb-8 text-center text-white tracking-wide ">
+              {mode === 'create' ? 'Host Game' : 'Join Game'}
             </h2>
 
-            <form
-              onSubmit={mode === 'create' ? handleCreateRoom : handleJoinRoom}
-              className="space-y-5"
-            >
+            <form onSubmit={mode === 'create' ? handleCreateRoom : handleJoinRoom} className="space-y-6">
               <div>
-                <label className="block text-sm mb-2 text-gray-300">
+                <label className="block text-sm  text-gray-400 tracking-wide mb-2 ml-1.5">
                   Your Name
                 </label>
                 <input
                   type="text"
                   value={playerName}
                   onChange={(e) => setPlayerName(e.target.value)}
-                  placeholder="Enter your name"
+                  placeholder="Name"
                   maxLength={20}
-                  className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 focus:outline-none focus:ring-2 focus:ring-purple-500 transition"
+                  className="w-full px-5 py-4 rounded-xl  bg-white/5 border border-white/10 text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
                 />
               </div>
 
               {mode === 'join' && (
-                <div>
-                  <label className="block text-sm mb-2 text-gray-300">
+                <div className="animate-in slide-in-from-top-2">
+                  <label className="block text-sm text-gray-400 tracking-wide mb-2 ml-1.5">
                     Room Code
                   </label>
                   <input
                     type="text"
                     value={roomCode}
                     onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
-                    placeholder="Enter 6-letter code"
+                    placeholder="6-letter code"
                     maxLength={6}
-                    className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 uppercase focus:outline-none focus:ring-2 focus:ring-green-500 transition"
+                    className="w-full px-5 py-4 rounded-xl bg-white/5 border border-white/10 placeholder:text-gray-600 text-white font-mono tracking-[0.1em] focus:outline-none focus:ring-2 focus:ring-green-500/50 transition-all"
                   />
                 </div>
               )}
 
               {error && (
-                <p className="text-red-400 text-sm text-center">{error}</p>
+                <p className="text-red-400 text-sm text-center font-bold bg-red-400/10 py-2 rounded-lg border border-red-400/20">
+                  {error}
+                </p>
               )}
 
-              <div className="flex gap-3 pt-3">
+              <div className="flex gap-4 pt-2">
                 <button
                   type="button"
-                  onClick={() => setMode(null)}
-                  className="flex-1 py-3 rounded-lg bg-white/10 hover:bg-white/20 transition"
+                  onClick={() => { setMode(null); setError(''); }}
+                  className="flex-1 py-3.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all font-medium text-base text-gray-400"
                 >
                   Back
                 </button>
-
                 <button
                   type="submit"
-                  className={`flex-1 py-3 rounded-lg font-semibold transition shadow-lg ${
-                    mode === 'create'
-                      ? 'bg-gradient-to-r from-blue-500 to-indigo-600 shadow-blue-500/30'
-                      : 'bg-gradient-to-r from-green-500 to-emerald-600 shadow-green-500/30'
+                  className={`flex-1 py-3.5 rounded-xl font-semibold transition-all text-base shadow-lg ${
+                    mode === 'create' ? 'bg-[#3b82f6] btn-glow-blue' : 'bg-[#22c55e] btn-glow-green'
                   }`}
                 >
                   {mode === 'create' ? 'Create' : 'Join'}

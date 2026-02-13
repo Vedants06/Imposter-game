@@ -145,7 +145,7 @@ function startTurnTimer(roomCode) {
       }
       nextTurn(roomCode);
     }
-  }, 20000);
+  }, 40000);
 }
 
 function nextTurn(roomCode) {
