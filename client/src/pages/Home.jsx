@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { socket } from '../socket';
+import { socket, saveSession } from '../socket';
 
-export default function Home({ onRoomJoined }) {
+export default function Home() {
   const [mode, setMode] = useState(null);
   const [playerName, setPlayerName] = useState('');
   const [roomCode, setRoomCode] = useState('');
@@ -10,15 +10,28 @@ export default function Home({ onRoomJoined }) {
   const handleCreateRoom = (e) => {
     e.preventDefault();
     setError('');
-    if (!playerName.trim()) return setError('Please enter your name');
+    if (!playerName.trim()) {
+      setError('Please enter your name');
+      return;
+    }
+    
+    saveSession('', playerName.trim());
     socket.emit('create_room', { playerName: playerName.trim() });
   };
 
   const handleJoinRoom = (e) => {
     e.preventDefault();
     setError('');
-    if (!playerName.trim()) return setError('Please enter your name');
-    if (!roomCode.trim()) return setError('Please enter room code');
+    if (!playerName.trim()) {
+      setError('Please enter your name');
+      return;
+    }
+    if (!roomCode.trim()) {
+      setError('Please enter room code');
+      return;
+    }
+    
+    saveSession(roomCode.trim().toUpperCase(), playerName.trim());
     socket.emit('join_room', {
       roomCode: roomCode.trim().toUpperCase(),
       playerName: playerName.trim()
@@ -39,7 +52,7 @@ export default function Home({ onRoomJoined }) {
         
         {/* Stark White Bold Title */}
         <div className="mb-12">
-          <h1 className="text-7xl md:text-7xl font-black tracking-[0.12em] text-white uppercase drop-shadow-[0_0_20px_rgba(255,255,255,0.2)]">
+          <h1 className="text-6xl md:text-7xl font-black tracking-[0.12em] text-white uppercase drop-shadow-[0_0_20px_rgba(255,255,255,0.2)]">
             Imposter
           </h1>
           <p className="text-gray-400 mt-5 text-base font-normal font-mono opacity-90">

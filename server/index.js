@@ -73,7 +73,7 @@ function emitRoomUpdate(roomCode) {
     impostersCount: room.impostersCount,
     turnIndex: room.turnIndex,
     round: room.round,
-    clues: room.clues || [], // Send all clues including previous rounds
+    clues: room.clues || [],
     tiedPlayers: room.tiedPlayers || [],
     isRevote: room.isRevote || false
   });
@@ -82,7 +82,6 @@ function emitRoomUpdate(roomCode) {
 function assignRoles(roomCode) {
   const room = rooms[roomCode];
   
-  // Get random word
   const selectedCategory = room.category === 'random' 
     ? categories[Math.floor(Math.random() * categories.length)]
     : room.category;
@@ -93,11 +92,9 @@ function assignRoles(roomCode) {
   room.hint = wordData.hint;
   room.actualCategory = selectedCategory;
 
-  // Shuffle and select imposters
   const shuffled = shuffleArray(room.players);
   const imposterIds = shuffled.slice(0, room.impostersCount).map(p => p.id);
 
-  // Assign roles and words
   room.players.forEach(player => {
     const isImposter = imposterIds.includes(player.id);
     player.role = isImposter ? 'imposter' : 'player';
@@ -108,7 +105,6 @@ function assignRoles(roomCode) {
       player.word = isImposter ? null : room.actualWord;
     }
 
-    // Send private role data
     io.to(player.id).emit('role_assigned', {
       role: player.role,
       word: player.word,
@@ -128,20 +124,16 @@ function startTurnTimer(roomCode) {
   }
 
   room.turnTimer = setTimeout(() => {
-    // Auto-advance turn on timeout
     if (room.phase === 'chat') {
       const currentPlayer = room.players[room.turnIndex];
       if (currentPlayer && currentPlayer.alive) {
         room.clues.push({
           playerId: currentPlayer.id,
           playerName: currentPlayer.name,
-          clue: '[Timeout - No clue given]'
+          clue: '[Timeout - No clue given]',
+          round: room.round
         });
-        io.to(roomCode).emit('clue_added', {
-          playerId: currentPlayer.id,
-          playerName: currentPlayer.name,
-          clue: '[Timeout - No clue given]'
-        });
+        emitRoomUpdate(roomCode);
       }
       nextTurn(roomCode);
     }
@@ -159,20 +151,17 @@ function nextTurn(roomCode) {
 
   const alivePlayers = room.players.filter(p => p.alive);
   
-  // Find next alive player
   let attempts = 0;
   do {
     room.turnIndex = (room.turnIndex + 1) % room.players.length;
     attempts++;
   } while (!room.players[room.turnIndex].alive && attempts < room.players.length);
 
-  // Check if round complete
   const allAliveHaveSpoken = alivePlayers.every(p => 
     room.clues.some(c => c.playerId === p.id && c.round === room.round)
   );
 
   if (allAliveHaveSpoken) {
-    // Wait 10 seconds before moving to voting so everyone can see the last clue
     setTimeout(() => {
       if (!rooms[roomCode] || room.phase !== 'chat') return;
       
@@ -186,7 +175,6 @@ function nextTurn(roomCode) {
       emitRoomUpdate(roomCode);
     }, 10000);
   } else {
-    // Continue chat phase
     io.to(roomCode).emit('turn_changed', {
       turnIndex: room.turnIndex,
       currentPlayer: room.players[room.turnIndex]
@@ -203,9 +191,10 @@ function checkWinCondition(roomCode) {
   const aliveNormal = alivePlayers.filter(p => p.role === 'player');
 
   if (aliveImposters.length === 0) {
-    // Players win
     room.phase = 'game_over';
-    io.to(roomCode).emit('game_over', {
+    
+    // Store game over data in room for reconnection
+    room.gameOverData = {
       winner: 'players',
       actualWord: room.actualWord,
       imposterWord: room.imposterWord,
@@ -215,13 +204,16 @@ function checkWinCondition(roomCode) {
         role: p.role,
         word: p.role === 'imposter' && room.mode === 'different_word' ? room.imposterWord : (p.role === 'player' ? room.actualWord : null)
       }))
-    });
+    };
+    
+    io.to(roomCode).emit('game_over', room.gameOverData);
     emitRoomUpdate(roomCode);
     return true;
   } else if (aliveImposters.length >= aliveNormal.length) {
-    // Imposters win
     room.phase = 'game_over';
-    io.to(roomCode).emit('game_over', {
+    
+    // Store game over data in room for reconnection
+    room.gameOverData = {
       winner: 'imposters',
       actualWord: room.actualWord,
       imposterWord: room.imposterWord,
@@ -231,7 +223,9 @@ function checkWinCondition(roomCode) {
         role: p.role,
         word: p.role === 'imposter' && room.mode === 'different_word' ? room.imposterWord : (p.role === 'player' ? room.actualWord : null)
       }))
-    });
+    };
+    
+    io.to(roomCode).emit('game_over', room.gameOverData);
     emitRoomUpdate(roomCode);
     return true;
   }
@@ -239,9 +233,66 @@ function checkWinCondition(roomCode) {
   return false;
 }
 
-// Socket.io event handlers
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
+
+  socket.on('reconnect_to_room', ({ roomCode, playerName }) => {
+    if (!roomCode || !playerName) {
+      socket.emit('reconnect_failed', { message: 'Invalid reconnection data' });
+      return;
+    }
+
+    const room = rooms[roomCode.toUpperCase()];
+    
+    if (!room) {
+      socket.emit('reconnect_failed', { message: 'Room no longer exists' });
+      return;
+    }
+
+    const existingPlayer = room.players.find(p => p.name.toLowerCase() === playerName.trim().toLowerCase());
+    
+    if (!existingPlayer) {
+      socket.emit('reconnect_failed', { message: 'Player not found in room' });
+      return;
+    }
+
+    // Store old socket ID to check if was host
+    const oldSocketId = existingPlayer.id;
+    const wasHost = room.hostId === oldSocketId;
+
+    // Update socket ID
+    existingPlayer.id = socket.id;
+    playerRooms[socket.id] = roomCode.toUpperCase();
+    socket.join(roomCode.toUpperCase());
+
+    // If this player was the host, transfer host to them with new socket ID
+    if (wasHost) {
+      room.hostId = socket.id;
+      console.log(`Host ${playerName} reconnected, host ID updated`);
+    }
+
+    // Re-send role data if game has started
+    if (room.phase !== 'lobby' && existingPlayer.role) {
+      const isImposter = existingPlayer.role === 'imposter';
+      socket.emit('role_assigned', {
+        role: existingPlayer.role,
+        word: existingPlayer.word,
+        category: isImposter ? room.actualCategory : null,
+        hint: isImposter ? room.hint : null,
+        mode: room.mode
+      });
+    }
+
+    // Re-send game_over data if in game_over phase
+    if (room.phase === 'game_over' && room.gameOverData) {
+      socket.emit('game_over', room.gameOverData);
+    }
+
+    socket.emit('reconnect_success', { roomCode: roomCode.toUpperCase() });
+    emitRoomUpdate(roomCode.toUpperCase());
+    
+    console.log(`Player ${playerName} reconnected to room ${roomCode}`);
+  });
 
   socket.on('create_room', ({ playerName }) => {
     if (!playerName || playerName.trim() === '') {
@@ -394,10 +445,8 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // Assign roles
     assignRoles(roomCode);
     
-    // Set phase to reveal
     room.phase = 'reveal';
     io.to(roomCode).emit('phase_changed', { phase: 'reveal' });
     emitRoomUpdate(roomCode);
@@ -414,15 +463,12 @@ io.on('connection', (socket) => {
       player.hasRevealed = true;
       emitRoomUpdate(roomCode);
 
-      // Check if all revealed
       if (room.players.every(p => p.hasRevealed)) {
-        // Wait 5 seconds before starting chat phase
         setTimeout(() => {
           if (!rooms[roomCode] || room.phase !== 'reveal') return;
           
           room.phase = 'chat';
           room.turnIndex = 0;
-          // Don't reset clues here - keep chat history across rounds
           if (!room.clues) {
             room.clues = [];
           }
@@ -464,13 +510,11 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // Check if already submitted clue this round
     if (room.clues.some(c => c.playerId === socket.id && c.round === room.round)) {
       socket.emit('error_message', { message: 'Already submitted clue this round' });
       return;
     }
 
-    // Add clue
     room.clues.push({
       playerId: socket.id,
       playerName: player.name,
@@ -478,175 +522,149 @@ io.on('connection', (socket) => {
       round: room.round
     });
 
-    // Emit room update so everyone sees the new clue immediately
     emitRoomUpdate(roomCode);
-    
-    io.to(roomCode).emit('clue_added', {
-      playerId: socket.id,
-      playerName: player.name,
-      clue: clue.trim()
-    });
-
-    // Move to next turn
     nextTurn(roomCode);
   });
 
   socket.on('cast_vote', ({ targetId }) => {
-  const roomCode = playerRooms[socket.id];
-  const room = rooms[roomCode];
+    const roomCode = playerRooms[socket.id];
+    const room = rooms[roomCode];
 
-  if (!room) {
-    socket.emit('error_message', { message: 'Room not found' });
-    return;
-  }
+    if (!room) {
+      socket.emit('error_message', { message: 'Room not found' });
+      return;
+    }
 
-  if (room.phase !== 'voting' && room.phase !== 'revote') {
-    socket.emit('error_message', { message: 'Not in voting phase' });
-    return;
-  }
+    if (room.phase !== 'voting' && room.phase !== 'revote') {
+      socket.emit('error_message', { message: 'Not in voting phase' });
+      return;
+    }
 
-  const voter = room.players.find(p => p.id === socket.id);
+    const voter = room.players.find(p => p.id === socket.id);
 
-  if (!voter || !voter.alive) {
-    socket.emit('error_message', { message: 'You are not alive' });
-    return;
-  }
+    if (!voter || !voter.alive) {
+      socket.emit('error_message', { message: 'You are not alive' });
+      return;
+    }
 
-  // ✅ BLOCK TIED PLAYERS FROM VOTING DURING REVOTE
-  if (room.phase === 'revote' && room.tiedPlayers.includes(socket.id)) {
-    socket.emit('error_message', { message: 'Tied players cannot vote in revote' });
-    return;
-  }
+    if (room.phase === 'revote' && room.tiedPlayers.includes(socket.id)) {
+      socket.emit('error_message', { message: 'Tied players cannot vote in revote' });
+      return;
+    }
 
-  if (targetId === socket.id) {
-    socket.emit('error_message', { message: 'Cannot vote for yourself' });
-    return;
-  }
+    if (targetId === socket.id) {
+      socket.emit('error_message', { message: 'Cannot vote for yourself' });
+      return;
+    }
 
-  const target = room.players.find(p => p.id === targetId);
+    const target = room.players.find(p => p.id === targetId);
 
-  if (!target || !target.alive) {
-    socket.emit('error_message', { message: 'Invalid vote target' });
-    return;
-  }
+    if (!target || !target.alive) {
+      socket.emit('error_message', { message: 'Invalid vote target' });
+      return;
+    }
 
-  // ✅ During revote, can only vote for tied players
-  if (room.phase === 'revote' && !room.tiedPlayers.includes(targetId)) {
-    socket.emit('error_message', { message: 'Can only vote for tied players' });
-    return;
-  }
+    if (room.phase === 'revote' && !room.tiedPlayers.includes(targetId)) {
+      socket.emit('error_message', { message: 'Can only vote for tied players' });
+      return;
+    }
 
-  if (room.votes[socket.id]) {
-    socket.emit('error_message', { message: 'Already voted' });
-    return;
-  }
+    if (room.votes[socket.id]) {
+      socket.emit('error_message', { message: 'Already voted' });
+      return;
+    }
 
-  // Cast vote
-  room.votes[socket.id] = targetId;
+    room.votes[socket.id] = targetId;
 
-  const alivePlayers = room.players.filter(p => p.alive);
+    const alivePlayers = room.players.filter(p => p.alive);
+    const eligibleVoters = room.phase === 'revote'
+      ? alivePlayers.filter(p => !room.tiedPlayers.includes(p.id))
+      : alivePlayers;
 
-  // ✅ Determine eligible voters
-  const eligibleVoters = room.phase === 'revote'
-    ? alivePlayers.filter(p => !room.tiedPlayers.includes(p.id))
-    : alivePlayers;
+    const votesSubmitted = Object.keys(room.votes).length;
 
-  const votesSubmitted = Object.keys(room.votes).length;
-
-  io.to(roomCode).emit('vote_cast', {
-    voterId: socket.id,
-    votesSubmitted,
-    totalAlive: eligibleVoters.length
-  });
-
-  // ✅ Check if all eligible voters voted
-  if (votesSubmitted === eligibleVoters.length) {
-
-    // Count votes
-    const voteCounts = {};
-    Object.values(room.votes).forEach(targetId => {
-      voteCounts[targetId] = (voteCounts[targetId] || 0) + 1;
+    io.to(roomCode).emit('vote_cast', {
+      voterId: socket.id,
+      votesSubmitted,
+      totalAlive: eligibleVoters.length
     });
 
-    const maxVotes = Math.max(...Object.values(voteCounts));
-    const tied = Object.keys(voteCounts).filter(id => voteCounts[id] === maxVotes);
-
-    // If already in revote OR clear winner → eliminate
-    if (room.phase === 'revote' || tied.length === 1) {
-
-      let eliminated;
-
-      if (tied.length > 1) {
-        // Still tied after revote → random elimination
-        eliminated = room.players.find(
-          p => p.id === tied[Math.floor(Math.random() * tied.length)]
-        );
-      } else {
-        eliminated = room.players.find(p => p.id === tied[0]);
-      }
-
-      eliminated.alive = false;
-
-      room.phase = 'result';
-
-      io.to(roomCode).emit('player_eliminated', {
-        playerId: eliminated.id,
-        playerName: eliminated.name,
-        role: eliminated.role,
-        voteCounts,
-        wasRevote: room.isRevote || false,
-        wasTiebreaker: tied.length > 1
+    if (votesSubmitted === eligibleVoters.length) {
+      const voteCounts = {};
+      Object.values(room.votes).forEach(targetId => {
+        voteCounts[targetId] = (voteCounts[targetId] || 0) + 1;
       });
 
-      room.isRevote = false;
-      room.tiedPlayers = [];
-      emitRoomUpdate(roomCode);
+      const maxVotes = Math.max(...Object.values(voteCounts));
+      const tied = Object.keys(voteCounts).filter(id => voteCounts[id] === maxVotes);
 
-      // Check win condition after delay
-      setTimeout(() => {
-        if (!checkWinCondition(roomCode)) {
+      if (room.phase === 'revote' || tied.length === 1) {
+        let eliminated;
 
-          room.round++;
-          room.votes = {};
-          room.phase = 'chat';
-          room.turnIndex = 0;
-
-          // Find first alive player
-          while (!room.players[room.turnIndex].alive) {
-            room.turnIndex = (room.turnIndex + 1) % room.players.length;
-          }
-
-          io.to(roomCode).emit('phase_changed', { phase: 'chat' });
-          io.to(roomCode).emit('turn_changed', {
-            turnIndex: room.turnIndex,
-            currentPlayer: room.players[room.turnIndex]
-          });
-
-          emitRoomUpdate(roomCode);
-          startTurnTimer(roomCode);
+        if (tied.length > 1) {
+          eliminated = room.players.find(
+            p => p.id === tied[Math.floor(Math.random() * tied.length)]
+          );
+        } else {
+          eliminated = room.players.find(p => p.id === tied[0]);
         }
-      }, 3000);
 
-    } else {
-      // First vote tie → start revote
-      room.phase = 'revote';
-      room.isRevote = true;
-      room.tiedPlayers = tied;
-      room.votes = {};
+        eliminated.alive = false;
+        room.phase = 'result';
 
-      io.to(roomCode).emit('revote_started', {
-        tiedPlayers: tied.map(id => {
-          const player = room.players.find(p => p.id === id);
-          return { id: player.id, name: player.name };
-        }),
-        voteCounts
-      });
+        io.to(roomCode).emit('player_eliminated', {
+          playerId: eliminated.id,
+          playerName: eliminated.name,
+          role: eliminated.role,
+          voteCounts,
+          wasRevote: room.isRevote || false,
+          wasTiebreaker: tied.length > 1
+        });
 
-      io.to(roomCode).emit('phase_changed', { phase: 'revote' });
-      emitRoomUpdate(roomCode);
+        room.isRevote = false;
+        room.tiedPlayers = [];
+        emitRoomUpdate(roomCode);
+
+        setTimeout(() => {
+          if (!checkWinCondition(roomCode)) {
+            room.round++;
+            room.votes = {};
+            room.phase = 'chat';
+            room.turnIndex = 0;
+
+            while (!room.players[room.turnIndex].alive) {
+              room.turnIndex = (room.turnIndex + 1) % room.players.length;
+            }
+
+            io.to(roomCode).emit('phase_changed', { phase: 'chat' });
+            io.to(roomCode).emit('turn_changed', {
+              turnIndex: room.turnIndex,
+              currentPlayer: room.players[room.turnIndex]
+            });
+
+            emitRoomUpdate(roomCode);
+            startTurnTimer(roomCode);
+          }
+        }, 3000);
+      } else {
+        room.phase = 'revote';
+        room.isRevote = true;
+        room.tiedPlayers = tied;
+        room.votes = {};
+
+        io.to(roomCode).emit('revote_started', {
+          tiedPlayers: tied.map(id => {
+            const player = room.players.find(p => p.id === id);
+            return { id: player.id, name: player.name };
+          }),
+          voteCounts
+        });
+
+        io.to(roomCode).emit('phase_changed', { phase: 'revote' });
+        emitRoomUpdate(roomCode);
+      }
     }
-  }
-});
+  });
 
   socket.on('restart_game', () => {
     const roomCode = playerRooms[socket.id];
@@ -667,7 +685,6 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // Reset game state
     room.players.forEach(p => {
       p.alive = true;
       p.hasRevealed = false;
@@ -680,7 +697,6 @@ io.on('connection', (socket) => {
     room.turnIndex = 0;
     room.clues = [];
     
-    // Assign new roles
     assignRoles(roomCode);
     
     room.phase = 'reveal';
@@ -694,27 +710,9 @@ io.on('connection', (socket) => {
     const roomCode = playerRooms[socket.id];
     if (roomCode && rooms[roomCode]) {
       const room = rooms[roomCode];
-      
-      // Remove player
-      room.players = room.players.filter(p => p.id !== socket.id);
-      
-      // If host left, assign new host or delete room
-      if (room.hostId === socket.id) {
-        if (room.players.length > 0) {
-          room.hostId = room.players[0].id;
-        } else {
-          delete rooms[roomCode];
-          delete playerRooms[socket.id];
-          return;
-        }
-      }
-
-      delete playerRooms[socket.id];
-      
-      if (room.players.length === 0) {
-        delete rooms[roomCode];
-      } else {
-        emitRoomUpdate(roomCode);
+      const player = room.players.find(p => p.id === socket.id);
+      if (player) {
+        console.log(`Player ${player.name} disconnected from room ${roomCode}`);
       }
     }
   });

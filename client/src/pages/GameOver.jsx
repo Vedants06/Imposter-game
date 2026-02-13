@@ -1,8 +1,15 @@
-import { socket } from '../socket';
+import { socket, clearSession } from '../socket';
 
 export default function GameOver({ gameOverData, isHost }) {
   const handleRestart = () => {
     socket.emit('restart_game');
+  };
+
+  const handleNewGame = () => {
+    // Clear session data
+    clearSession();
+    // Reload page to go to home
+    window.location.reload();
   };
 
   return (
@@ -68,19 +75,33 @@ export default function GameOver({ gameOverData, isHost }) {
           </div>
         </div>
 
-        {/* Restart Button */}
-        {isHost && (
-          <button
-            onClick={handleRestart}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-lg text-xl transition"
-          >
-            Play Again
-          </button>
-        )}
-
-        {!isHost && (
-          <div className="bg-gray-800 p-4 rounded-lg text-center">
-            <p className="text-gray-400">Waiting for host to start a new game...</p>
+        {/* Buttons */}
+        {isHost ? (
+          <div className="grid md:grid-cols-2 gap-4">
+            <button
+              onClick={handleRestart}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-lg text-xl transition"
+            >
+              Play Again
+            </button>
+            <button
+              onClick={handleNewGame}
+              className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-4 px-6 rounded-lg text-xl transition"
+            >
+              New Game
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="bg-gray-800 p-4 rounded-lg text-center">
+              <p className="text-gray-400">Waiting for host to start a new game...</p>
+            </div>
+            <button
+              onClick={handleNewGame}
+              className="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg transition"
+            >
+              Leave & Start New Game
+            </button>
           </div>
         )}
       </div>
