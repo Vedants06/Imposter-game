@@ -52,7 +52,7 @@ export default function Home({ onRoomJoined }) {
         {/* Title Section */}
         <div className="text-center mb-10">
           <h1 className="text-5xl md:text-6xl font-extrabold tracking-wide bg-gradient-to-r from-purple-400 via-blue-400 to-pink-400 bg-clip-text text-transparent drop-shadow-lg">
-            <AuroraText>Aurora Text</AuroraText>
+            <AuroraText>Imposter</AuroraText>
           </h1>
           <p className="text-gray-400 mt-3 text-lg">
             Find the imposters among us
