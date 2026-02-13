@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { socket } from '../socket';
+import { AuroraText } from "@/components/ui/aurora-text"
 
 export default function Home({ onRoomJoined }) {
-  const [mode, setMode] = useState(null); // 'create' or 'join'
+  const [mode, setMode] = useState(null);
   const [playerName, setPlayerName] = useState('');
   const [roomCode, setRoomCode] = useState('');
   const [error, setError] = useState('');
@@ -10,7 +11,7 @@ export default function Home({ onRoomJoined }) {
   const handleCreateRoom = (e) => {
     e.preventDefault();
     setError('');
-    
+
     if (!playerName.trim()) {
       setError('Please enter your name');
       return;
@@ -22,7 +23,7 @@ export default function Home({ onRoomJoined }) {
   const handleJoinRoom = (e) => {
     e.preventDefault();
     setError('');
-    
+
     if (!playerName.trim()) {
       setError('Please enter your name');
       return;
@@ -33,110 +34,118 @@ export default function Home({ onRoomJoined }) {
       return;
     }
 
-    socket.emit('join_room', { 
-      roomCode: roomCode.trim().toUpperCase(), 
-      playerName: playerName.trim() 
+    socket.emit('join_room', {
+      roomCode: roomCode.trim().toUpperCase(),
+      playerName: playerName.trim()
     });
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center p-4">
-      <div className="max-w-md w-full">
-        <div className="text-center mb-8">
-          <h1 className="text-5xl font-bold mb-2">IMPOSTER</h1>
-          <p className="text-gray-400">Find the imposters among us</p>
+    <div className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden bg-gradient-to-br from-[#0f172a] via-[#0b1120] to-[#020617] text-white">
+
+      {/* Background Glow Effects */}
+      <div className="absolute w-96 h-96 bg-purple-600/30 rounded-full blur-3xl top-[-100px] left-[-100px]" />
+      <div className="absolute w-96 h-96 bg-blue-600/30 rounded-full blur-3xl bottom-[-100px] right-[-100px]" />
+
+      <div className="max-w-md w-full z-10">
+
+        {/* Title Section */}
+        <div className="text-center mb-10">
+          <h1 className="text-5xl md:text-6xl font-extrabold tracking-wide bg-gradient-to-r from-purple-400 via-blue-400 to-pink-400 bg-clip-text text-transparent drop-shadow-lg">
+            <AuroraText>Aurora Text</AuroraText>
+          </h1>
+          <p className="text-gray-400 mt-3 text-lg">
+            Find the imposters among us
+          </p>
         </div>
 
+        {/* Main Buttons */}
         {!mode ? (
-          <div className="space-y-4">
+          <div className="space-y-5">
+
             <button
               onClick={() => setMode('create')}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-4 px-6 rounded-lg transition"
+              className="w-full py-4 rounded-xl font-semibold text-lg bg-gradient-to-r from-blue-500 to-indigo-600 hover:scale-10 transition-all duration-300 shadow-lg shadow-blue-500/30"
             >
               Create Room
             </button>
+
             <button
               onClick={() => setMode('join')}
-              className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-4 px-6 rounded-lg transition"
+              className="w-full py-4 rounded-xl font-semibold text-lg bg-gradient-to-r from-green-500 to-emerald-600 hover:scale-10 transition-all duration-300 shadow-lg shadow-green-500/30"
             >
               Join Room
             </button>
-            
-            <p className="text-gray-500 text-sm text-center">made by vedant</p>
-          </div>
-        ) : mode === 'create' ? (
-          <div className="bg-gray-800 p-6 rounded-lg">
-            <h2 className="text-2xl font-bold mb-4">Create Room</h2>
-            <form onSubmit={handleCreateRoom} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Your Name</label>
-                <input
-                  type="text"
-                  value={playerName}
-                  onChange={(e) => setPlayerName(e.target.value)}
-                  className="w-full bg-gray-700 text-white px-4 py-2 rounded border border-gray-600 focus:outline-none focus:border-blue-500"
-                  placeholder="Enter your name"
-                  maxLength={20}
-                />
-              </div>
-              {error && <p className="text-red-500 text-sm">{error}</p>}
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setMode(null)}
-                  className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded transition"
-                >
-                  Back
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded transition"
-                >
-                  Create
-                </button>
-              </div>
-            </form>
+
+            <p className="text-gray-500 text-sm text-center mt-6">
+              made by vedant
+            </p>
+
           </div>
         ) : (
-          <div className="bg-gray-800 p-6 rounded-lg">
-            <h2 className="text-2xl font-bold mb-4">Join Room</h2>
-            <form onSubmit={handleJoinRoom} className="space-y-4">
+
+          <div className="backdrop-blur-xl bg-white/5 border border-white/10 p-8 rounded-2xl shadow-2xl">
+
+            <h2 className="text-2xl font-bold mb-6 text-center">
+              {mode === 'create' ? 'Create Room' : 'Join Room'}
+            </h2>
+
+            <form
+              onSubmit={mode === 'create' ? handleCreateRoom : handleJoinRoom}
+              className="space-y-5"
+            >
               <div>
-                <label className="block text-sm font-medium mb-2">Your Name</label>
+                <label className="block text-sm mb-2 text-gray-300">
+                  Your Name
+                </label>
                 <input
                   type="text"
                   value={playerName}
                   onChange={(e) => setPlayerName(e.target.value)}
-                  className="w-full bg-gray-700 text-white px-4 py-2 rounded border border-gray-600 focus:outline-none focus:border-blue-500"
                   placeholder="Enter your name"
                   maxLength={20}
+                  className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 focus:outline-none focus:ring-2 focus:ring-purple-500 transition"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Room Code</label>
-                <input
-                  type="text"
-                  value={roomCode}
-                  onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
-                  className="w-full bg-gray-700 text-white px-4 py-2 rounded border border-gray-600 focus:outline-none focus:border-blue-500 uppercase"
-                  placeholder="Enter 6-letter code"
-                  maxLength={6}
-                />
-              </div>
-              {error && <p className="text-red-500 text-sm">{error}</p>}
-              <div className="flex gap-2">
+
+              {mode === 'join' && (
+                <div>
+                  <label className="block text-sm mb-2 text-gray-300">
+                    Room Code
+                  </label>
+                  <input
+                    type="text"
+                    value={roomCode}
+                    onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+                    placeholder="Enter 6-letter code"
+                    maxLength={6}
+                    className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 uppercase focus:outline-none focus:ring-2 focus:ring-green-500 transition"
+                  />
+                </div>
+              )}
+
+              {error && (
+                <p className="text-red-400 text-sm text-center">{error}</p>
+              )}
+
+              <div className="flex gap-3 pt-3">
                 <button
                   type="button"
                   onClick={() => setMode(null)}
-                  className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded transition"
+                  className="flex-1 py-3 rounded-lg bg-white/10 hover:bg-white/20 transition"
                 >
                   Back
                 </button>
+
                 <button
                   type="submit"
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded transition"
+                  className={`flex-1 py-3 rounded-lg font-semibold transition shadow-lg ${
+                    mode === 'create'
+                      ? 'bg-gradient-to-r from-blue-500 to-indigo-600 shadow-blue-500/30'
+                      : 'bg-gradient-to-r from-green-500 to-emerald-600 shadow-green-500/30'
+                  }`}
                 >
-                  Join
+                  {mode === 'create' ? 'Create' : 'Join'}
                 </button>
               </div>
             </form>
