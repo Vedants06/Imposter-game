@@ -612,11 +612,21 @@ io.on('connection', (socket) => {
         eliminated.alive = false;
         room.phase = 'result';
 
+        // Create vote counts with player names
+        const voteCountsWithNames = {};
+        Object.entries(voteCounts).forEach(([playerId, votes]) => {
+          const player = room.players.find(p => p.id === playerId);
+          voteCountsWithNames[playerId] = {
+            name: player ? player.name : 'Unknown',
+            votes: votes
+          };
+        });
+
         io.to(roomCode).emit('player_eliminated', {
           playerId: eliminated.id,
           playerName: eliminated.name,
           role: eliminated.role,
-          voteCounts,
+          voteCounts: voteCountsWithNames,
           wasRevote: room.isRevote || false,
           wasTiebreaker: tied.length > 1
         });

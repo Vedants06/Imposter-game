@@ -59,15 +59,16 @@ export default function ResultModal({ eliminationData }) {
             </h3>
             <div className="space-y-2 text-sm">
               {Object.entries(eliminationData.voteCounts)
-                .sort(([, a], [, b]) => b - a)
-                .map(([playerId, votes], index) => (
+                .filter(([, data]) => data.votes > 0) // Only show players with votes > 0
+                .sort(([, a], [, b]) => b.votes - a.votes) // Sort by votes (highest first)
+                .map(([playerId, data]) => (
                   <div 
                     key={playerId} 
-                    className="flex justify-between bg-white/5 px-4 py-2 rounded-lg"
+                    className="flex justify-between bg-white/5 px-4 py-3 rounded-lg"
                   >
-                    <span className="text-gray-300">#{index + 1}</span>
+                    <span className="text-gray-200 font-medium">{data.name}</span>
                     <span className="font-mono font-bold text-white">
-                      {votes} {votes === 1 ? 'vote' : 'votes'}
+                      {data.votes} {data.votes === 1 ? 'vote' : 'votes'}
                     </span>
                   </div>
                 ))}

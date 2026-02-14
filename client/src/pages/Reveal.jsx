@@ -53,7 +53,7 @@ export default function Reveal({ roleData, room }) {
               </p>
               <button
                 onClick={handleReveal}
-                className="bg-[#3b82f6] hover:bg-blue-700 text-white font-bold py-4 px-12 rounded-xl text-xl transition-all btn-glow-blue hover:scale-[1.05] active:scale-95"
+                className="bg-[#3b82f6] hover:bg-blue-700 text-white font-bold py-4 px-12 rounded-xl text-xl transition-all btn-glow-blue hover:scale-[1.01] active:scale-95"
               >
                 Reveal
               </button>
