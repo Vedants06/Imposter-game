@@ -11,9 +11,7 @@ export default function Chat({ room, currentPlayerId }) {
   const isMyTurn = currentPlayer?.id === currentPlayerId;
   
   const allClues = room.clues || [];
-  const currentRoundClues = allClues.filter(c => c.round === room.round);
 
-  // Auto-scroll to latest clue
   useEffect(() => {
     cluesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [allClues]);
@@ -24,7 +22,6 @@ export default function Chat({ room, currentPlayerId }) {
     const interval = setInterval(() => {
       setTimeLeft((prev) => Math.max(0, prev - 1));
     }, 1000);
-
     return () => clearInterval(interval);
   }, [room.turnIndex]);
 
@@ -33,7 +30,6 @@ export default function Chat({ room, currentPlayerId }) {
     const allAliveHaveSpoken = alivePlayers.every(p => 
       allClues.some(c => c.playerId === p.id && c.round === room.round)
     );
-    
     if (allAliveHaveSpoken && room.phase === 'chat') {
       setWaitingForVoting(true);
     }
@@ -42,53 +38,53 @@ export default function Chat({ room, currentPlayerId }) {
   const handleSubmitClue = (e) => {
     e.preventDefault();
     if (!clue.trim() || !isMyTurn) return;
-
     socket.emit('submit_clue', { clue: clue.trim() });
     setClue('');
   };
 
   return (
-    <div className="h-screen bg-gray-900 text-white flex flex-col">
+    <div className="h-screen relative overflow-hidden stars-bg text-white flex flex-col">
+      {/* Subtle cosmic background for chat */}
+      <div className="absolute w-[400px] h-[400px] bg-purple-600/5 rounded-full blur-[100px] -top-20 -left-20 pointer-events-none" />
+      <div className="absolute w-[400px] h-[400px] bg-blue-600/5 rounded-full blur-[100px] -bottom-20 -right-20 pointer-events-none" />
+
       {/* Header */}
-      <div className="p-4 bg-gray-800 border-b border-gray-700">
+      <div className="relative z-10 p-4 backdrop-blur-xl bg-white/5 border-b border-white/10">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-3">
-            <h1 className="text-2xl font-bold">Round {room.round}</h1>
-            <p className="text-sm text-gray-400">Give clues about your word</p>
+            <h1 className="text-3xl font-black tracking-wider">Round {room.round}</h1>
+            <p className="text-sm text-gray-300">Give clues about your word</p>
           </div>
 
-          {/* Waiting for voting message */}
           {waitingForVoting && (
-            <div className="bg-blue-900 border-2 border-blue-600 p-3 rounded-lg text-center">
-              <p className="font-semibold">All players have given clues!</p>
-              <p className="text-xs text-gray-300 mt-1">Moving to voting in a few seconds...</p>
+            <div className="bg-blue-500/20 border-2 border-blue-500/50 p-3 rounded-xl text-center backdrop-blur-sm">
+              <p className="font-semibold text-blue-200">All players have given clues!</p>
+              <p className="text-xs text-blue-300 mt-1">Moving to voting in a few seconds</p>
             </div>
           )}
 
-          {/* Turn Indicator */}
           {!waitingForVoting && (
-            <div className="bg-gray-700 p-4 rounded-lg">
-              <div className="flex items-center justify-between mb-2">
+            <div className="backdrop-blur-xl bg-white/10 border border-white/20 p-4 rounded-2xl">
+              <div className="flex items-center justify-between mb-3">
                 <div>
-                  <p className="text-xs text-gray-400">Current Turn</p>
-                  <p className="text-lg font-bold">
+                  <p className="text-xs text-gray-300 mb-1">Current Turn</p>
+                  <p className="text-xl font-bold">
                     {currentPlayer?.name}
-                    {isMyTurn && <span className="text-green-500"> (You)</span>}
+                    {isMyTurn && <span className="text-green-400"> (You)</span>}
                   </p>
                 </div>
                 <div className="text-center">
-                  <p className="text-xs text-gray-400">Time</p>
-                  <p className={`text-2xl font-bold font-mono ${timeLeft <= 5 ? 'text-red-500' : ''}`}>
+                  <p className="text-xs text-gray-300 mb-1">Time Left</p>
+                  <p className={`text-3xl font-black font-mono ${timeLeft <= 5 ? 'text-red-400' : 'text-blue-400'}`}>
                     {timeLeft}s
                   </p>
                 </div>
               </div>
 
-              {/* Timer Bar */}
-              <div className="bg-gray-600 rounded-full h-1.5">
+              <div className="bg-white/10 rounded-full h-2 overflow-hidden">
                 <div
-                  className={`h-1.5 rounded-full transition-all duration-1000 ${
-                    timeLeft <= 5 ? 'bg-red-500' : 'bg-blue-500'
+                  className={`h-2 rounded-full transition-all duration-1000 ${
+                    timeLeft <= 5 ? 'bg-gradient-to-r from-red-500 to-orange-500' : 'bg-gradient-to-r from-blue-500 to-purple-500'
                   }`}
                   style={{ width: `${(timeLeft / 40) * 100}%` }}
                 />
@@ -98,14 +94,16 @@ export default function Chat({ room, currentPlayerId }) {
         </div>
       </div>
 
-      {/* Clues List - Scrollable */}
-      <div className="flex-1 overflow-y-auto p-4">
-        <div className="max-w-4xl mx-auto space-y-2">
+      {/* Clues List - Better contrast */}
+      <div className="flex-1 overflow-y-auto p-4 relative z-10">
+        <div className="max-w-4xl mx-auto space-y-3">
           {allClues.length === 0 ? (
             <div className="flex items-center justify-center h-full">
-              <p className="text-gray-500 text-center">
-                No clues yet. Waiting for first player...
-              </p>
+              <div className="backdrop-blur-xl bg-white/5 border border-white/10 px-6 py-4 rounded-2xl">
+                <p className="text-gray-300 text-center">
+                  No clues yet. Waiting for first player to start
+                </p>
+              </div>
             </div>
           ) : (
             <>
@@ -115,26 +113,26 @@ export default function Chat({ room, currentPlayerId }) {
                 return (
                   <div
                     key={index}
-                    className={`p-3 rounded-lg ${
+                    className={`p-4 rounded-2xl backdrop-blur-xl border transition-all ${
                       isMyClue
-                        ? 'bg-blue-900 ml-8'
+                        ? 'bg-blue-500/20 border-blue-500/50 ml-12'
                         : isCurrentRound 
-                        ? 'bg-gray-700 mr-8' 
-                        : 'bg-gray-700 opacity-60 mr-8'
+                        ? 'bg-white/10 border-white/20 mr-12' 
+                        : 'bg-white/5 border-white/10 opacity-60 mr-12'
                     }`}
                   >
-                    <div className="flex items-start justify-between mb-1">
+                    <div className="flex items-start justify-between mb-2">
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold text-sm">{clueData.playerName}</span>
-                        <span className="text-xs bg-blue-600 px-2 py-0.5 rounded">
-                          R{clueData.round}
+                        <span className="font-bold text-white">{clueData.playerName}</span>
+                        <span className="text-xs bg-purple-500/30 border border-purple-500/50 px-2 py-0.5 rounded-full">
+                          Round {clueData.round}
                         </span>
                       </div>
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-gray-400 bg-white/10 px-2 py-0.5 rounded-full">
                         #{index + 1}
                       </span>
                     </div>
-                    <p className="text-gray-100">{clueData.clue}</p>
+                    <p className="text-gray-100 text-base">{clueData.clue}</p>
                   </div>
                 );
               })}
@@ -144,16 +142,16 @@ export default function Chat({ room, currentPlayerId }) {
         </div>
       </div>
 
-      {/* Clue Input - Fixed at bottom */}
+      {/* Input at bottom */}
       {isMyTurn && !waitingForVoting && (
-        <div className="p-4 bg-gray-800 border-t border-gray-700">
+        <div className="relative z-10 p-4 backdrop-blur-xl bg-white/5 border-t border-white/10">
           <div className="max-w-4xl mx-auto">
-            <form onSubmit={handleSubmitClue} className="flex gap-2">
+            <form onSubmit={handleSubmitClue} className="flex gap-3">
               <input
                 type="text"
                 value={clue}
                 onChange={(e) => setClue(e.target.value)}
-                className="flex-1 bg-gray-700 text-white px-4 py-3 rounded border border-gray-600 focus:outline-none focus:border-green-500"
+                className="flex-1 bg-white/10 border border-white/20 text-white px-5 py-4 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/50 placeholder:text-gray-400"
                 placeholder="Type your clue..."
                 maxLength={100}
                 autoFocus
@@ -161,7 +159,7 @@ export default function Chat({ room, currentPlayerId }) {
               <button
                 type="submit"
                 disabled={!clue.trim()}
-                className="bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-semibold px-6 rounded transition"
+                className="bg-[#22c55e] hover:bg-green-700 disabled:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold px-8 rounded-xl transition-all btn-glow-green hover:scale-[1.02]"
               >
                 Send
               </button>
@@ -170,11 +168,10 @@ export default function Chat({ room, currentPlayerId }) {
         </div>
       )}
 
-      {/* Info bar when not your turn */}
       {!isMyTurn && !waitingForVoting && (
-        <div className="p-3 bg-gray-800 border-t border-gray-700">
-          <div className="max-w-4xl mx-auto text-center text-sm text-gray-400">
-            Waiting for {currentPlayer?.name} to give their clue...
+        <div className="relative z-10 p-3 backdrop-blur-xl bg-white/5 border-t border-white/10">
+          <div className="max-w-4xl mx-auto text-center text-sm text-gray-300">
+            Waiting for <span className="font-semibold text-white">{currentPlayer?.name}</span> to give their clue
           </div>
         </div>
       )}
