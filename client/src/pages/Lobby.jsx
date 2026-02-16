@@ -1,14 +1,36 @@
-import { socket } from '../socket';
+import { useState } from 'react';
+import { socket, clearSession } from '../socket';
 
 const categories = ['random', 'Places', 'Movies', 'Food', 'Animals', 'Sports'];
 
 export default function Lobby({ room, isHost }) {
+  const [showHostMenu, setShowHostMenu] = useState(false);
+  const [selectedPlayer, setSelectedPlayer] = useState(null);
+
   const handleSettingChange = (setting, value) => {
     socket.emit('update_settings', { [setting]: value });
   };
 
   const handleStartGame = () => {
     socket.emit('start_game');
+  };
+
+  const handleLeaveRoom = () => {
+    socket.emit('leave_room');
+    clearSession();
+    window.location.reload();
+  };
+
+  const handleKickPlayer = (playerId) => {
+    socket.emit('kick_player', { playerId });
+    setShowHostMenu(false);
+    setSelectedPlayer(null);
+  };
+
+  const handleTransferHost = (playerId) => {
+    socket.emit('transfer_host', { newHostId: playerId });
+    setShowHostMenu(false);
+    setSelectedPlayer(null);
   };
 
   const maxImposters = Math.floor(room.players.length / 2);
@@ -23,7 +45,7 @@ export default function Lobby({ room, isHost }) {
       <div className="max-w-4xl w-full z-10 py-8 animate-slide-up">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold tracking-wider mb-4 drop-shadow-[0_0_20px_rgba(255,255,255,0.2)]">
+          <h1 className="text-5xl font-black tracking-wider mb-4 drop-shadow-[0_0_20px_rgba(255,255,255,0.2)]">
             LOBBY
           </h1>
           <div className="inline-block backdrop-blur-xl bg-white/5 border border-white/10 px-8 py-4 rounded-2xl">
@@ -35,22 +57,43 @@ export default function Lobby({ room, isHost }) {
         <div className="grid md:grid-cols-2 gap-6">
           {/* Players List */}
           <div className="backdrop-blur-xl bg-white/5 border border-white/10 p-6 rounded-3xl">
-            <h2 className="text-2xl font-medium mb-4 pl-2 flex tracking-wide items-center gap-2">
+            <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
               Players: {room.players.length}
             </h2>
             <div className="space-y-2">
               {room.players.map((player, index) => (
                 <div
                   key={player.id}
-                  className="bg-white/5 border border-white/10 px-4 py-3 rounded-xl flex items-center justify-between hover:bg-white/10 transition-all"
+                  className="bg-white/5 border border-white/10 px-4 py-3 rounded-xl flex items-center justify-between hover:bg-white/10 transition-all group"
                   style={{ animationDelay: `${index * 0.1}s` }}
                 >
                   <span className="font-medium">{player.name}</span>
-                  {player.id === room.hostId && (
-                    <span className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white text-xs px-3 py-1 rounded-full font-bold shadow-lg">
-                      Host
-                    </span>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {player.id === room.hostId && (
+                      <span className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white text-xs px-3 py-1 rounded-full font-bold shadow-lg">
+                        Host
+                      </span>
+                    )}
+                    {/* Host Controls - only visible on hover */}
+                    {isHost && player.id !== room.hostId && (
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => handleTransferHost(player.id)}
+                          className="bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/50 text-blue-200 text-xs px-2 py-1 rounded transition-all"
+                          title="Make Host"
+                        >
+                          👑
+                        </button>
+                        <button
+                          onClick={() => handleKickPlayer(player.id)}
+                          className="bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 text-red-200 text-xs px-2 py-1 rounded transition-all"
+                          title="Kick"
+                        >
+                          ❌
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -58,7 +101,7 @@ export default function Lobby({ room, isHost }) {
 
           {/* Settings */}
           <div className="backdrop-blur-xl bg-white/5 border border-white/10 p-6 rounded-3xl">
-            <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
+            <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
               Game Settings
             </h2>
             
@@ -116,13 +159,13 @@ export default function Lobby({ room, isHost }) {
                   <button
                     onClick={handleStartGame}
                     disabled={room.players.length < 3}
-                    className={`w-full py-4 rounded-xl font-semibold text-lg transition-all duration-300 ${
+                    className={`w-full py-4 rounded-xl font-bold text-lg transition-all duration-300 ${
                       room.players.length < 3
                         ? 'bg-gray-600 cursor-not-allowed opacity-50'
                         : 'bg-[#22c55e] btn-glow-green hover:scale-[1.02] active:scale-95'
                     }`}
                   >
-                    {room.players.length < 3 ? 'Need at least 3 players' : 'Start Game'}
+                    {room.players.length < 3 ? 'Need at least 3 players' : 'Start Game 🚀'}
                   </button>
                 </div>
               </div>
@@ -130,11 +173,11 @@ export default function Lobby({ room, isHost }) {
               <div className="space-y-4">
                 <div className="bg-white/5 p-4 rounded-xl">
                   <p className="text-sm text-gray-400 mb-1">Imposters</p>
-                  <p className="text-xl font-bold text-red-400">{room.impostersCount}</p>
+                  <p className="text-2xl font-bold text-red-400">{room.impostersCount}</p>
                 </div>
                 <div className="bg-white/5 p-4 rounded-xl">
                   <p className="text-sm text-gray-400 mb-1">Category</p>
-                  <p className="text-xl font-bold text-blue-400">
+                  <p className="text-2xl font-semibold text-blue-400">
                     {room.category === 'random' ? 'Random' : room.category}
                   </p>
                 </div>
@@ -156,7 +199,7 @@ export default function Lobby({ room, isHost }) {
 
         {/* How to Play */}
         <div className="mt-6 backdrop-blur-xl bg-white/5 border border-white/10 p-6 rounded-3xl">
-          <h3 className="font-bold text-xl mb-3 text-blue-300">How to Play</h3>
+          <h3 className="font-bold text-xl mb-3 text-blue-300">How to Play:</h3>
           <ul className="text-sm text-gray-300 space-y-2">
             <li className="flex items-start gap-2">
               <span className="text-purple-400">•</span>
@@ -179,6 +222,16 @@ export default function Lobby({ room, isHost }) {
               <span>Imposters win if they equal or outnumber the players</span>
             </li>
           </ul>
+        </div>
+
+        {/* Leave Room Button */}
+        <div className="mt-6">
+          <button
+            onClick={handleLeaveRoom}
+            className="w-full bg-red-500/20 hover:bg-red-500/30 border-2 border-red-500/50 hover:border-red-500/70 text-white/70 font-bold py-3 px-6 rounded-xl transition-all"
+          >
+            Leave Room
+          </button>
         </div>
       </div>
     </div>

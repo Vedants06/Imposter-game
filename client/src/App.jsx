@@ -109,6 +109,21 @@ function App() {
       setTimeout(() => setError(''), 5000);
     };
 
+    const handleKicked = ({ message }) => {
+      clearSession();
+      setRoom(null);
+      setError(message);
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    };
+
+    const handleLeftRoom = () => {
+      clearSession();
+      setRoom(null);
+      window.location.reload();
+    };
+
     socket.on('connect', handleConnect);
     socket.on('reconnect_success', handleReconnectSuccess);
     socket.on('reconnect_failed', handleReconnectFailed);
@@ -120,6 +135,8 @@ function App() {
     socket.on('player_eliminated', handlePlayerEliminated);
     socket.on('game_over', handleGameOver);
     socket.on('error_message', handleError);
+    socket.on('kicked_from_room', handleKicked);
+    socket.on('left_room', handleLeftRoom);
 
     return () => {
       socket.off('connect', handleConnect);
@@ -133,6 +150,8 @@ function App() {
       socket.off('player_eliminated', handlePlayerEliminated);
       socket.off('game_over', handleGameOver);
       socket.off('error_message', handleError);
+      socket.off('kicked_from_room', handleKicked);
+      socket.off('left_room', handleLeftRoom);
     };
   }, []);
 

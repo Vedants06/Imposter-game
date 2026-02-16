@@ -714,6 +714,117 @@ io.on('connection', (socket) => {
     emitRoomUpdate(roomCode);
   });
 
+  socket.on('leave_room', () => {
+    const roomCode = playerRooms[socket.id];
+    const room = rooms[roomCode];
+
+    if (!room) {
+      socket.emit('error_message', { message: 'Room not found' });
+      return;
+    }
+
+    if (room.phase !== 'lobby') {
+      socket.emit('error_message', { message: 'Cannot leave after game started' });
+      return;
+    }
+
+    const wasHost = room.hostId === socket.id;
+    
+    // Remove player from room
+    room.players = room.players.filter(p => p.id !== socket.id);
+    delete playerRooms[socket.id];
+    socket.leave(roomCode);
+
+    // If room is empty, delete it
+    if (room.players.length === 0) {
+      delete rooms[roomCode];
+      socket.emit('left_room');
+      return;
+    }
+
+    // If host left, transfer to first remaining player
+    if (wasHost) {
+      room.hostId = room.players[0].id;
+      console.log(`Host left, transferred to ${room.players[0].name}`);
+    }
+
+    socket.emit('left_room');
+    emitRoomUpdate(roomCode);
+  });
+
+  socket.on('kick_player', ({ playerId }) => {
+    const roomCode = playerRooms[socket.id];
+    const room = rooms[roomCode];
+
+    if (!room) {
+      socket.emit('error_message', { message: 'Room not found' });
+      return;
+    }
+
+    if (room.hostId !== socket.id) {
+      socket.emit('error_message', { message: 'Only host can kick players' });
+      return;
+    }
+
+    if (room.phase !== 'lobby') {
+      socket.emit('error_message', { message: 'Cannot kick after game started' });
+      return;
+    }
+
+    if (playerId === socket.id) {
+      socket.emit('error_message', { message: 'Cannot kick yourself' });
+      return;
+    }
+
+    const kickedPlayer = room.players.find(p => p.id === playerId);
+    if (!kickedPlayer) {
+      socket.emit('error_message', { message: 'Player not found' });
+      return;
+    }
+
+    // Remove player
+    room.players = room.players.filter(p => p.id !== playerId);
+    delete playerRooms[playerId];
+
+    // Notify kicked player
+    io.to(playerId).emit('kicked_from_room', { 
+      message: 'You have been removed from the room by the host' 
+    });
+
+    emitRoomUpdate(roomCode);
+    console.log(`${kickedPlayer.name} was kicked from room ${roomCode}`);
+  });
+
+  socket.on('transfer_host', ({ newHostId }) => {
+    const roomCode = playerRooms[socket.id];
+    const room = rooms[roomCode];
+
+    if (!room) {
+      socket.emit('error_message', { message: 'Room not found' });
+      return;
+    }
+
+    if (room.hostId !== socket.id) {
+      socket.emit('error_message', { message: 'Only host can transfer host' });
+      return;
+    }
+
+    if (room.phase !== 'lobby') {
+      socket.emit('error_message', { message: 'Cannot transfer host after game started' });
+      return;
+    }
+
+    const newHost = room.players.find(p => p.id === newHostId);
+    if (!newHost) {
+      socket.emit('error_message', { message: 'Player not found' });
+      return;
+    }
+
+    room.hostId = newHostId;
+    emitRoomUpdate(roomCode);
+    console.log(`Host transferred to ${newHost.name} in room ${roomCode}`);
+  });
+
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
     
